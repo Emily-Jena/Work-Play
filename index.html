@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'IBM Plex Sans', sans-serif; }
+    input, textarea, button { font-family: 'IBM Plex Sans', sans-serif; }
+    input::placeholder, textarea::placeholder { opacity: 0.5; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #2a3a4e; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, createContext, useContext } = React;
+
+    const SECTIONS = [
+      { id:"about",      label:"About Me",       icon:"👤", color:"#c9a84c", darkColor:"#e8c86a", badge:{bg:"#fdf3dc",text:"#7a5a00",border:"#f0d890",darkBg:"#3a2e00",darkText:"#f0d070",darkBorder:"#6a5000"} },
+      { id:"experience", label:"Work Experience", icon:"💼", color:"#2a72c8", darkColor:"#5a9ff5", badge:{bg:"#e8f0fc",text:"#1a3a7a",border:"#bad0f8",darkBg:"#0c1e40",darkText:"#7ab8ff",darkBorder:"#1a3a7a"} },
+      { id:"projects",   label:"Projects",        icon:"🛠", color:"#12967a", darkColor:"#28c49a", badge:{bg:"#e2f5f0",text:"#0a4a38",border:"#9adece",darkBg:"#052a20",darkText:"#40d8b0",darkBorder:"#0a5040"} },
+      { id:"skills",     label:"Skills",          icon:"⚡", color:"#8b3db8", darkColor:"#b87de8", badge:{bg:"#f2e8fc",text:"#4a1a70",border:"#d4a8f0",darkBg:"#200a35",darkText:"#d090ff",darkBorder:"#5a1a90"} },
+      { id:"education",  label:"Education",       icon:"🎓", color:"#c05c20", darkColor:"#f08040", badge:{bg:"#fdf0e8",text:"#6a2800",border:"#f0c098",darkBg:"#351200",darkText:"#f09050",darkBorder:"#7a3000"} },
+    ];
+
+    const sec = (id) => SECTIONS.find(s => s.id === id);
+
+    const LIGHT = {
+      sidebar:"#0d1b2a", sidebarHov:"#162336", sideBorder:"#1e2f44", sideText:"#c8bfb0", sideMuted:"#6a7f96",
+      bg:"#f5f2eb", surface:"#ffffff", surfaceAlt:"#f9f7f3", border:"#ddd8cc",
+      text:"#1a1a1a", textSec:"#4a4540", muted:"#7a7470",
+      gold:"#c9a84c", goldHov:"#b8922e", inputBg:"#f5f2eb",
+    };
+    const DARK = {
+      sidebar:"#080f1a", sidebarHov:"#0e1a2a", sideBorder:"#142030", sideText:"#c0b8a8", sideMuted:"#5a7090",
+      bg:"#111827", surface:"#1a2535", surfaceAlt:"#1e2c3e", border:"#2a3a4e",
+      text:"#e4ddd4", textSec:"#b0a898", muted:"#7a8fa6",
+      gold:"#d8b85a", goldHov:"#c9a84c", inputBg:"#131e2e",
+    };
+
+    const ThemeCtx = createContext({ t: LIGHT, dark: false });
+    const useT = () => useContext(ThemeCtx);
+
+    const emptyAbout   = { name:"", title:"", bio:"", location:"", email:"", website:"", linkedin:"", github:"" };
+    const emptyExp     = { company:"", role:"", startDate:"", endDate:"", current:false, description:"" };
+    const emptyProject = { name:"", description:"", tech:"", link:"", year:"" };
+    const emptySkill   = { category:"", items:"" };
+    const emptyEdu     = { institution:"", degree:"", field:"", startYear:"", endYear:"", gpa:"", description:"" };
+
+    const ls = {
+      get: (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+      set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    };
+
+    function Badge({ children, sectionId }) {
+      const { dark } = useT();
+      const s = sec(sectionId);
+      return (
+        <span style={{ background:dark?s.badge.darkBg:s.badge.bg, color:dark?s.badge.darkText:s.badge.text, border:`1px solid ${dark?s.badge.darkBorder:s.badge.border}`, fontSize:12, fontFamily:"'IBM Plex Mono',monospace", padding:"2px 9px", borderRadius:4, whiteSpace:"nowrap", display:"inline-block" }}>
+          {children}
+        </span>
+      );
+    }
+
+    function SectionLabel({ sectionId }) {
+      const { dark } = useT();
+      const s = sec(sectionId);
+      return <span style={{ fontSize:11, fontFamily:"'IBM Plex Mono',monospace", letterSpacing:"0.1em", textTransform:"uppercase", color:dark?s.darkColor:s.color, fontWeight:500 }}>{s.icon}&nbsp;&nbsp;{s.label}</span>;
+    }
+
+    function GoldBtn({ onClick, children, outline }) {
+      const { t } = useT();
+      const [hov, setHov] = useState(false);
+      return (
+        <button onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+          style={{ background:outline?"transparent":(hov?t.goldHov:t.gold), color:outline?(hov?t.gold:t.muted):"#fff", border:`1px solid ${outline?t.border:t.gold}`, borderRadius:6, padding:"7px 16px", fontSize:13, fontWeight:500, cursor:"pointer", transition:"all .15s" }}>
+          {children}
+        </button>
+      );
+    }
+
+    function IconBtn({ onClick, label, danger }) {
+      const { t } = useT();
+      const [hov, setHov] = useState(false);
+      return (
+        <button onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+          style={{ background:"none", border:`1px solid ${hov?(danger?"#e87070":t.gold):t.border}`, borderRadius:5, padding:"3px 10px", fontSize:12, cursor:"pointer", color:hov?(danger?"#d04040":t.gold):t.muted, transition:"all .12s" }}>
+          {label}
+        </button>
+      );
+    }
+
+    function Field({ label, value, onChange, as, rows, placeholder, type, half }) {
+      const { t } = useT();
+      const base = { width:"100%", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:6, padding:"8px 12px", fontSize:14, color:t.text, boxSizing:"border-box", outline:"none", fontFamily:"'IBM Plex Sans',sans-serif" };
+      return (
+        <div style={{ flex:half?"1 1 45%":"1 1 100%", marginBottom:14 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:500, color:t.muted, marginBottom:5, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</label>
+          {as==="textarea"
+            ? <textarea value={value} onChange={onChange} rows={rows||3} placeholder={placeholder} style={{ ...base, resize:"vertical" }} />
+            : <input type={type||"text"} value={value} onChange={onChange} placeholder={placeholder} style={base} />}
+        </div>
+      );
+    }
+
+    function Modal({ title, sectionId, onClose, onSave, children }) {
+      const { t, dark } = useT();
+      const s = sec(sectionId);
+      const accent = dark?s.darkColor:s.color;
+      return (
+        <div style={{ position:"fixed", inset:0, background:"rgba(5,12,22,0.72)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+          <div style={{ background:t.surface, borderRadius:14, width:"100%", maxWidth:560, maxHeight:"88vh", overflowY:"auto", border:`1px solid ${t.border}`, borderTop:`3px solid ${accent}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"18px 24px", borderBottom:`1px solid ${t.border}` }}>
+              <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:19, fontWeight:600, color:t.text, margin:0 }}>{title}</h3>
+              <button onClick={onClose} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:t.muted, lineHeight:1 }}>×</button>
+            </div>
+            <div style={{ padding:"22px 24px" }}>{children}</div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10, padding:"14px 24px", borderTop:`1px solid ${t.border}`, background:t.surfaceAlt, borderRadius:"0 0 14px 14px" }}>
+              <GoldBtn outline onClick={onClose}>Cancel</GoldBtn>
+              <GoldBtn onClick={onSave}>Save Entry</GoldBtn>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function SectionCard({ children, onEdit, onDelete, sectionId }) {
+      const { t, dark } = useT();
+      const s = sec(sectionId);
+      const accent = dark?s.darkColor:s.color;
+      return (
+        <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:10, padding:"18px 20px", marginBottom:14, borderLeft:`3px solid ${accent}`, position:"relative", transition:"all .2s" }}>
+          {children}
+          <div style={{ position:"absolute", top:14, right:14, display:"flex", gap:6 }}>
+            <IconBtn onClick={onEdit} label="Edit" />
+            <IconBtn onClick={onDelete} label="×" danger />
+          </div>
+        </div>
+      );
+    }
+
+    function Empty({ label }) {
+      const { t } = useT();
+      return (
+        <div style={{ textAlign:"center", padding:"48px 24px", border:`1.5px dashed ${t.border}`, borderRadius:10, color:t.muted, fontSize:14 }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
+          {label}
+        </div>
+      );
+    }
+
+    function Portfolio() {
+      const [dark, setDark]       = useState(() => ls.get("pf_dark") ?? false);
+      const [active, setActive]   = useState("about");
+      const [about, setAbout]     = useState(() => ls.get("pf_about") ?? emptyAbout);
+      const [experiences, setExp] = useState(() => ls.get("pf_exp") ?? []);
+      const [projects, setProj]   = useState(() => ls.get("pf_proj") ?? []);
+      const [skills, setSkills]   = useState(() => ls.get("pf_skills") ?? []);
+      const [education, setEdu]   = useState(() => ls.get("pf_edu") ?? []);
+      const [modal, setModal]     = useState(null);
+      const [draft, setDraft]     = useState({});
+      const [editIdx, setEditIdx] = useState(null);
+      const [photoSrc, setPhoto]  = useState(() => localStorage.getItem("pf_photo") ?? null);
+      const [saved, setSaved]     = useState(false);
+      const [menuOpen, setMenu]   = useState(false);
+      const fileRef = useRef();
+      const t = dark ? DARK : LIGHT;
+
+      const persist = (k, v) => ls.set(k, v);
+      const flash = () => { setSaved(true); setTimeout(()=>setSaved(false), 2000); };
+
+      const toggleDark = () => { const n=!dark; setDark(n); persist("pf_dark",n); };
+      const saveAbout  = () => { persist("pf_about", about); flash(); };
+
+      const openAdd  = (type) => { setModal(type); setDraft(type==="experience"?{...emptyExp}:type==="project"?{...emptyProject}:type==="skill"?{...emptySkill}:{...emptyEdu}); setEditIdx(null); };
+      const openEdit = (type,idx,data) => { setModal(type); setDraft({...data}); setEditIdx(idx); };
+
+      const saveModal = () => {
+        const upd=(arr,val,idx)=>idx!==null?arr.map((x,i)=>i===idx?val:x):[...arr,val];
+        if(modal==="experience"){ const u=upd(experiences,draft,editIdx); setExp(u); persist("pf_exp",u); }
+        if(modal==="project")   { const u=upd(projects,draft,editIdx);    setProj(u); persist("pf_proj",u); }
+        if(modal==="skill")     { const u=upd(skills,draft,editIdx);      setSkills(u); persist("pf_skills",u); }
+        if(modal==="education") { const u=upd(education,draft,editIdx);   setEdu(u); persist("pf_edu",u); }
+        setModal(null);
+      };
+
+      const del = (type,idx) => {
+        if(type==="experience"){ const u=experiences.filter((_,i)=>i!==idx); setExp(u); persist("pf_exp",u); }
+        if(type==="project")   { const u=projects.filter((_,i)=>i!==idx);    setProj(u); persist("pf_proj",u); }
+        if(type==="skill")     { const u=skills.filter((_,i)=>i!==idx);      setSkills(u); persist("pf_skills",u); }
+        if(type==="education") { const u=education.filter((_,i)=>i!==idx);   setEdu(u); persist("pf_edu",u); }
+      };
+
+      const handlePhoto = (e) => {
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=(ev)=>{ const src=ev.target.result; setPhoto(src); try{localStorage.setItem("pf_photo",src);}catch{} };
+        reader.readAsDataURL(file);
+      };
+
+      const df = (field) => (e) => setDraft({...draft,[field]:e.target.type==="checkbox"?e.target.checked:e.target.value});
+
+      const activeSec   = sec(active);
+      const activeColor = dark?activeSec.darkColor:activeSec.color;
+
+      const Sidebar = () => (
+        <div style={{ width:248, background:t.sidebar, display:"flex", flexDirection:"column", position:"fixed", top:0, left:0, bottom:0, overflowY:"auto", zIndex:100, transition:"background .25s" }}>
+          <div style={{ padding:"30px 20px 22px", borderBottom:`1px solid ${t.sideBorder}` }}>
+            <div onClick={()=>fileRef.current.click()}
+              style={{ width:68, height:68, borderRadius:"50%", background:t.sidebarHov, border:`2px solid ${t.gold}`, margin:"0 auto 14px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", transition:"border-color .2s" }}>
+              {photoSrc?<img src={photoSrc} alt="Profile" style={{ width:"100%", height:"100%", objectFit:"cover" }} />:<span style={{ fontSize:22, color:t.gold }}>+</span>}
+              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display:"none" }} />
+            </div>
+            <p style={{ color:t.sideText, fontSize:14, textAlign:"center", margin:"0 0 3px", fontWeight:500, fontFamily:"'Playfair Display',serif" }}>{about.name||"Your Name"}</p>
+            <p style={{ color:t.sideMuted, fontSize:12, textAlign:"center", margin:0 }}>{about.title||"Your Title"}</p>
+          </div>
+          <nav style={{ padding:"14px 0", flex:1 }}>
+            {SECTIONS.map(s => {
+              const isActive=active===s.id;
+              const color=dark?s.darkColor:s.color;
+              return (
+                <button key={s.id} onClick={()=>{ setActive(s.id); setMenu(false); }}
+                  style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"10px 20px", background:isActive?t.sidebarHov:"transparent", border:"none", borderLeft:`3px solid ${isActive?color:"transparent"}`, color:isActive?"#fff":t.sideMuted, fontSize:13, fontWeight:isActive?500:400, cursor:"pointer", textAlign:"left", transition:"all .12s" }}>
+                  <span style={{ fontSize:16 }}>{s.icon}</span>
+                  <span>{s.label}</span>
+                  {isActive&&<span style={{ marginLeft:"auto", width:6, height:6, borderRadius:"50%", background:color, flexShrink:0 }} />}
+                </button>
+              );
+            })}
+          </nav>
+          <div style={{ padding:"16px 20px", borderTop:`1px solid ${t.sideBorder}` }}>
+            <button onClick={toggleDark}
+              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:t.sidebarHov, border:`1px solid ${t.sideBorder}`, borderRadius:8, padding:"8px 14px", cursor:"pointer", fontSize:12, color:t.sideMuted, transition:"all .15s" }}>
+              <span style={{ fontSize:14 }}>{dark?"☀️":"🌙"}</span>
+              <span>{dark?"Light Mode":"Dark Mode"}</span>
+              <span style={{ marginLeft:"auto", width:28, height:16, borderRadius:8, background:dark?t.gold:t.sideBorder, position:"relative", flexShrink:0, transition:"background .2s", display:"inline-block" }}>
+                <span style={{ position:"absolute", top:2, left:dark?14:2, width:12, height:12, borderRadius:"50%", background:"#fff", transition:"left .2s" }} />
+              </span>
+            </button>
+          </div>
+        </div>
+      );
+
+      return (
+        <ThemeCtx.Provider value={{ t, dark }}>
+          <div style={{ display:"flex", minHeight:"100vh", background:t.bg, transition:"background .25s" }}>
+            <Sidebar />
+            <div style={{ marginLeft:248, flex:1, padding:"40px 48px", maxWidth:900, boxSizing:"border-box" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:30 }}>
+                <div>
+                  <SectionLabel sectionId={active} />
+                  <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:30, fontWeight:700, color:t.text, margin:"6px 0 0", transition:"color .2s" }}>{activeSec.label}</h1>
+                  <div style={{ width:38, height:3, background:activeColor, borderRadius:2, marginTop:8, transition:"background .2s" }} />
+                </div>
+                {saved&&<span style={{ background:dark?"#0e2a14":"#edf7ee", color:dark?"#50cc70":"#2d7a3a", fontSize:13, padding:"6px 14px", borderRadius:20, border:`1px solid ${dark?"#1a5028":"#b8e0bf"}`, marginTop:4 }}>✓ Saved</span>}
+              </div>
+
+              {active==="about"&&(
+                <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:10, padding:24, transition:"background .2s" }}>
+                  <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:13, fontWeight:600, color:activeColor, marginTop:0, marginBottom:18, paddingBottom:10, borderBottom:`1px solid ${t.border}`, textTransform:"uppercase", letterSpacing:"0.08em" }}>Personal Information</h2>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"0 16px" }}>
+                    <Field label="Full Name"          value={about.name}     onChange={e=>setAbout({...about,name:e.target.value})}     placeholder="Jane Smith"           half />
+                    <Field label="Professional Title" value={about.title}    onChange={e=>setAbout({...about,title:e.target.value})}    placeholder="Software Engineer"    half />
+                    <Field label="Location"           value={about.location} onChange={e=>setAbout({...about,location:e.target.value})} placeholder="New York, NY"         half />
+                    <Field label="Email"              value={about.email}    onChange={e=>setAbout({...about,email:e.target.value})}    placeholder="jane@example.com"     type="email" half />
+                    <Field label="Website"            value={about.website}  onChange={e=>setAbout({...about,website:e.target.value})}  placeholder="https://yoursite.com" half />
+                    <Field label="LinkedIn"           value={about.linkedin} onChange={e=>setAbout({...about,linkedin:e.target.value})} placeholder="linkedin.com/in/you"  half />
+                    <Field label="GitHub"             value={about.github}   onChange={e=>setAbout({...about,github:e.target.value})}   placeholder="github.com/you"       half />
+                    <Field label="Professional Summary" value={about.bio}   onChange={e=>setAbout({...about,bio:e.target.value})}      placeholder="Concise summary of your background, expertise, and goals…" as="textarea" rows={4} />
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginTop:4 }}>
+                    <GoldBtn onClick={saveAbout}>Save Changes</GoldBtn>
+                  </div>
+                </div>
+              )}
+
+              {active==="experience"&&(
+                <>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:18 }}><GoldBtn onClick={()=>openAdd("experience")}>+ Add Experience</GoldBtn></div>
+                  {experiences.length===0&&<Empty label="No work experience yet. Add your first role." />}
+                  {experiences.map((exp,i)=>(
+                    <SectionCard key={i} sectionId="experience" onEdit={()=>openEdit("experience",i,exp)} onDelete={()=>del("experience",i)}>
+                      <div style={{ paddingRight:90 }}>
+                        <p style={{ fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:600, color:t.text, margin:"0 0 2px" }}>{exp.role||"Role"}</p>
+                        <p style={{ fontSize:14, fontWeight:500, color:dark?sec("experience").darkColor:sec("experience").color, margin:"0 0 4px" }}>{exp.company||"Company"}</p>
+                        <p style={{ fontSize:12, color:t.muted, margin:"0 0 10px", fontFamily:"'IBM Plex Mono',monospace" }}>{exp.startDate} — {exp.current?"Present":exp.endDate}</p>
+                        {exp.description&&<p style={{ fontSize:13.5, color:t.textSec, lineHeight:1.75, margin:0 }}>{exp.description}</p>}
+                      </div>
+                    </SectionCard>
+                  ))}
+                </>
+              )}
+
+              {active==="projects"&&(
+                <>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:18 }}><GoldBtn onClick={()=>openAdd("project")}>+ Add Project</GoldBtn></div>
+                  {projects.length===0&&<Empty label="No projects yet. Showcase your work." />}
+                  {projects.map((proj,i)=>(
+                    <SectionCard key={i} sectionId="projects" onEdit={()=>openEdit("project",i,proj)} onDelete={()=>del("project",i)}>
+                      <div style={{ paddingRight:90 }}>
+                        <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:4 }}>
+                          <p style={{ fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:600, color:t.text, margin:0 }}>{proj.name||"Project Name"}</p>
+                          {proj.year&&<span style={{ fontSize:12, color:t.muted, fontFamily:"'IBM Plex Mono',monospace" }}>{proj.year}</span>}
+                        </div>
+                        {proj.description&&<p style={{ fontSize:13.5, color:t.textSec, lineHeight:1.75, margin:"6px 0 10px" }}>{proj.description}</p>}
+                        {proj.tech&&<div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>{proj.tech.split(",").map(tk=>tk.trim()).filter(Boolean).map((tk,ti)=><Badge key={ti} sectionId="projects">{tk}</Badge>)}</div>}
+                        {proj.link&&<a href={proj.link} target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:dark?sec("projects").darkColor:sec("projects").color, display:"inline-block", marginTop:8 }}>🔗 {proj.link}</a>}
+                      </div>
+                    </SectionCard>
+                  ))}
+                </>
+              )}
+
+              {active==="skills"&&(
+                <>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:18 }}><GoldBtn onClick={()=>openAdd("skill")}>+ Add Skill Group</GoldBtn></div>
+                  {skills.length===0&&<Empty label="No skills added yet. Group them by category." />}
+                  {skills.map((sk,i)=>(
+                    <SectionCard key={i} sectionId="skills" onEdit={()=>openEdit("skill",i,sk)} onDelete={()=>del("skill",i)}>
+                      <div style={{ paddingRight:90 }}>
+                        <p style={{ fontFamily:"'Playfair Display',serif", fontSize:15, fontWeight:600, color:dark?sec("skills").darkColor:sec("skills").color, margin:"0 0 10px" }}>{sk.category||"Category"}</p>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>{(sk.items||"").split(",").map(s=>s.trim()).filter(Boolean).map((s,si)=><Badge key={si} sectionId="skills">{s}</Badge>)}</div>
+                      </div>
+                    </SectionCard>
+                  ))}
+                </>
+              )}
+
+              {active==="education"&&(
+                <>
+                  <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:18 }}><GoldBtn onClick={()=>openAdd("education")}>+ Add Education</GoldBtn></div>
+                  {education.length===0&&<Empty label="No education entries yet." />}
+                  {education.map((edu,i)=>(
+                    <SectionCard key={i} sectionId="education" onEdit={()=>openEdit("education",i,edu)} onDelete={()=>del("education",i)}>
+                      <div style={{ paddingRight:90 }}>
+                        <p style={{ fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:600, color:t.text, margin:"0 0 2px" }}>{edu.degree}{edu.field?` in ${edu.field}`:""}</p>
+                        <p style={{ fontSize:14, fontWeight:500, color:dark?sec("education").darkColor:sec("education").color, margin:"0 0 4px" }}>{edu.institution}</p>
+                        <p style={{ fontSize:12, color:t.muted, margin:"0 0 8px", fontFamily:"'IBM Plex Mono',monospace" }}>{edu.startYear} — {edu.endYear}{edu.gpa?` · GPA: ${edu.gpa}`:""}</p>
+                        {edu.description&&<p style={{ fontSize:13.5, color:t.textSec, lineHeight:1.75, margin:0 }}>{edu.description}</p>}
+                      </div>
+                    </SectionCard>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {modal==="experience"&&(
+            <Modal title={editIdx!==null?"Edit Experience":"Add Experience"} sectionId="experience" onClose={()=>setModal(null)} onSave={saveModal}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"0 16px" }}>
+                <Field label="Job Title / Role" value={draft.role||""} onChange={df("role")} placeholder="Software Engineer" half />
+                <Field label="Company"          value={draft.company||""} onChange={df("company")} placeholder="Acme Corp" half />
+                <Field label="Start Date"       value={draft.startDate||""} onChange={df("startDate")} placeholder="Jan 2022" half />
+                <Field label="End Date"         value={draft.endDate||""} onChange={df("endDate")} placeholder="Dec 2023" half />
+                <div style={{ flex:"1 1 100%", marginBottom:14 }}>
+                  <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, color:t.muted, cursor:"pointer" }}>
+                    <input type="checkbox" checked={draft.current||false} onChange={df("current")} /> Currently working here
+                  </label>
+                </div>
+                <Field label="Description / Achievements" value={draft.description||""} onChange={df("description")} as="textarea" rows={4} placeholder="Key responsibilities and achievements…" />
+              </div>
+            </Modal>
+          )}
+          {modal==="project"&&(
+            <Modal title={editIdx!==null?"Edit Project":"Add Project"} sectionId="projects" onClose={()=>setModal(null)} onSave={saveModal}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"0 16px" }}>
+                <Field label="Project Name" value={draft.name||""} onChange={df("name")} placeholder="My Awesome Project" half />
+                <Field label="Year"         value={draft.year||""} onChange={df("year")} placeholder="2024" half />
+                <Field label="Description"  value={draft.description||""} onChange={df("description")} as="textarea" rows={3} placeholder="What does this project do?" />
+                <Field label="Technologies (comma-separated)" value={draft.tech||""} onChange={df("tech")} placeholder="React, TypeScript, Node.js" />
+                <Field label="Link / URL"   value={draft.link||""} onChange={df("link")} placeholder="https://github.com/you/project" />
+              </div>
+            </Modal>
+          )}
+          {modal==="skill"&&(
+            <Modal title={editIdx!==null?"Edit Skill Group":"Add Skill Group"} sectionId="skills" onClose={()=>setModal(null)} onSave={saveModal}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"0 16px" }}>
+                <Field label="Category" value={draft.category||""} onChange={df("category")} placeholder="Languages, Frameworks, Tools…" />
+                <Field label="Skills (comma-separated)" value={draft.items||""} onChange={df("items")} as="textarea" rows={3} placeholder="Python, JavaScript, TypeScript…" />
+              </div>
+            </Modal>
+          )}
+          {modal==="education"&&(
+            <Modal title={editIdx!==null?"Edit Education":"Add Education"} sectionId="education" onClose={()=>setModal(null)} onSave={saveModal}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"0 16px" }}>
+                <Field label="Institution"    value={draft.institution||""} onChange={df("institution")} placeholder="MIT" />
+                <Field label="Degree"         value={draft.degree||""} onChange={df("degree")} placeholder="B.S., M.S., Ph.D…" half />
+                <Field label="Field of Study" value={draft.field||""} onChange={df("field")} placeholder="Computer Science" half />
+                <Field label="Start Year"     value={draft.startYear||""} onChange={df("startYear")} placeholder="2018" half />
+                <Field label="End Year"       value={draft.endYear||""} onChange={df("endYear")} placeholder="2022" half />
+                <Field label="GPA (optional)" value={draft.gpa||""} onChange={df("gpa")} placeholder="3.9 / 4.0" half />
+                <Field label="Additional Notes" value={draft.description||""} onChange={df("description")} as="textarea" rows={3} placeholder="Honors, thesis, relevant coursework…" />
+              </div>
+            </Modal>
+          )}
+        </ThemeCtx.Provider>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<Portfolio />);
+  </script>
+</body>
+</html>
